@@ -414,6 +414,7 @@ std::unique_ptr<trie_t> build(std::vector<std::string>& keys, build_opts& opts) 
     trie->load(TMP_INDEX_FILENAME);
     //trie->load_from_mem(output_buf->data(), output_buf->size());
     cleanup_madras *cleanup_obj = new cleanup_madras();
+    cleanup_obj->init(output_buf);
     trie->set_cleanup_object(cleanup_obj);
     return trie;
 }
