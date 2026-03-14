@@ -79,6 +79,38 @@ static int64_t read_svint60(uint8_t *ptr) {
     return is_neg ? -ret : ret;
 }
 
+#if defined(_MSC_VER)
+    #include <intrin.h>
+    #define bswap64(x) _byteswap_uint64(x)
+#else
+    #define bswap64(x) __builtin_bswap64(x)
+#endif
+
+static inline void encode_int64_sortable(int64_t value, uint8_t *out) {
+  uint64_t u;
+  memcpy(&u, &value, sizeof(u));
+  u ^= 0x8000000000000000ULL;
+  u = bswap64(u);
+  memcpy(out, &u, sizeof(u));
+}
+
+static inline int64_t decode_int64_sortable(const uint8_t *in) {
+  uint64_t u;
+  memcpy(&u, in, sizeof(u));
+  u = bswap64(u);
+  u ^= 0x8000000000000000ULL;
+  int64_t value;
+  memcpy(&value, &u, sizeof(value));
+  return value;
+}
+
+static inline void encode_int(int64_t value, uint8_t *out, size_t &isize) {
+    encode_int64_sortable(value, out);
+    isize = 8;
+    // isize = get_svint60_len(value);
+    // copy_svint60(value, out, isize);
+}
+
 template <class T>
 std::unique_ptr<T> build(std::vector<std::string>&, build_opts& opts);
 template <class T>
@@ -169,12 +201,11 @@ std::unique_ptr<trie_t> build(std::vector<std::string>& keys, build_opts& opts) 
         return trie;
     }
     int64_t ival;
+    uint8_t istr[16];
     size_t isize;
-    char istr[10];
     for (std::size_t i = 0; i < keys.size(); ++i) {
         ival = atoll(keys[i].c_str());
-        isize = get_svint60_len(ival);
-        copy_svint60(ival, (uint8_t *) istr, isize);
+        encode_int(ival, istr, isize);
         trie->update(istr, isize, uint32_t(i));
     }
     return trie;
@@ -185,10 +216,10 @@ uint64_t lookup(trie_t* trie, const std::string& query, bool as_str_or_int) {
         auto res = trie->exactMatchSearch<uint32_t>(query.c_str(), query.length());
         return res != uint32_t(trie_t::error_code::CEDAR_NO_VALUE) ? uint64_t(res) : NOT_FOUND;
     }
-    char istr[10];
+    uint8_t istr[16];
+    size_t isize;
     int64_t ival = atoll(query.c_str());
-    size_t isize = get_svint60_len(ival);
-    copy_svint60(ival, (uint8_t *) istr, isize);
+    encode_int(ival, istr, isize);
     auto res = trie->exactMatchSearch<uint32_t>(istr, isize);
     return res != uint32_t(trie_t::error_code::CEDAR_NO_VALUE) ? uint64_t(res) : NOT_FOUND;
 }
@@ -287,12 +318,11 @@ std::unique_ptr<trie_t> build(std::vector<std::string>& keys, build_opts& opts) 
         }
     } else {
         int64_t ival;
+        char istr[16];
         size_t isize;
-        char istr[10];
         for (std::size_t i = 0; i < keys.size(); ++i) {
             ival = atoll(keys[i].c_str());
-            isize = get_svint60_len(ival);
-            copy_svint60(ival, (uint8_t *) istr, isize);
+            encode_int(ival, (uint8_t *) istr, isize);
             keyset.push_back(istr, isize, 1.0F);
         }
     }
@@ -310,10 +340,10 @@ uint64_t lookup(trie_t* trie, const std::string& query, bool as_str_or_int) {
         agent.set_query(query.c_str(), query.length());
         return trie->lookup(agent) ? uint64_t(agent.key().id()) : NOT_FOUND;
     }
-    char istr[10];
+    char istr[16];
+        size_t isize;
     int64_t ival = atoll(query.c_str());
-    size_t isize = get_svint60_len(ival);
-    copy_svint60(ival, (uint8_t *) istr, isize);
+    encode_int(ival, (uint8_t *) istr, isize);
     agent.set_query(istr, isize);
     return trie->lookup(agent) ? uint64_t(agent.key().id()) : NOT_FOUND;
 
@@ -342,7 +372,7 @@ class cleanup_madras : public madras::dv1::cleanup_interface {
         virtual ~cleanup_madras() {
         }
         void release() {
-            delete output_buf;
+            //delete output_buf;
         }
         void init(std::vector<uint8_t> *_output_buf) {
             output_buf = _output_buf;
@@ -359,7 +389,7 @@ std::unique_ptr<trie_t> build(std::vector<std::string>& keys, build_opts& opts) 
     bldr_opts.max_inner_tries = opts.trie_count - 1;
     bldr_opts.max_groups = 1;
     bldr_opts.partial_sfx_coding = false;
-    madras::dv1::builder trie_bldr(nullptr, "kv_table,Key", 1, "t", "u",
+    madras::dv1::builder trie_bldr(TMP_INDEX_FILENAME, "kv_table,Key", 1, "t", "u",
                 0, 1, &bldr_opts);
     if (!opts.as_int) {
         for (std::size_t i = 0; i < keys.size(); ++i) {
@@ -367,28 +397,30 @@ std::unique_ptr<trie_t> build(std::vector<std::string>& keys, build_opts& opts) 
         }
     } else {
         int64_t ival;
+        uint8_t istr[16];
         size_t isize;
-        char istr[10];
         for (std::size_t i = 0; i < keys.size(); ++i) {
             ival = atoll(keys[i].c_str());
-            isize = get_svint60_len(ival);
-            copy_svint60(ival, (uint8_t *) istr, isize);
+            encode_int(ival, istr, isize);
             trie_bldr.insert((const uint8_t *) istr, isize);
         }
     }
-    std::vector<uint8_t> *output_buf = new std::vector<uint8_t>();
-    trie_bldr.set_out_vec(output_buf);
-    trie_bldr.write_kv();
+    //std::vector<uint8_t> *output_buf = new std::vector<uint8_t>();
+    //trie_bldr.set_out_vec(output_buf);
+    trie_bldr.build_and_write_all(true, TMP_INDEX_FILENAME);
     trie_bldr.close_file();
     auto trie = std::make_unique<trie_t>();
-    trie->load_from_mem(output_buf->data(), output_buf->size());
+    // trie->map_file_to_mem(TMP_INDEX_FILENAME);
+    trie->load(TMP_INDEX_FILENAME);
+    //trie->load_from_mem(output_buf->data(), output_buf->size());
     cleanup_madras *cleanup_obj = new cleanup_madras();
     trie->set_cleanup_object(cleanup_obj);
     return trie;
 }
 template <>
 uint64_t get_memory(trie_t* trie) {
-    return trie->get_size();
+    return essentials::file_size(TMP_INDEX_FILENAME);
+    //return trie->get_size();
 }
 template <>
 uint64_t lookup(trie_t* trie, const std::string& query, bool as_str_or_int) {
@@ -398,10 +430,10 @@ uint64_t lookup(trie_t* trie, const std::string& query, bool as_str_or_int) {
         in_ctx.key_len = query.length();
         return trie->lookup(in_ctx) ? trie->leaf_rank1(in_ctx.node_id) : NOT_FOUND;
     }
-    char istr[10];
+    uint8_t istr[16];
+    size_t isize;
     int64_t ival = atoll(query.c_str());
-    size_t isize = get_svint60_len(ival);
-    copy_svint60(ival, (uint8_t *) istr, isize);
+    encode_int(ival, istr, isize);
     in_ctx.key = (const uint8_t *) istr;
     in_ctx.key_len = isize;
     return trie->lookup(in_ctx) ? trie->leaf_rank1(in_ctx.node_id) : NOT_FOUND;
@@ -409,7 +441,7 @@ uint64_t lookup(trie_t* trie, const std::string& query, bool as_str_or_int) {
 template <>
 uint64_t decode(trie_t* trie, uint64_t query) {
     uint8_t out_key[trie->get_max_key_len()];
-    size_t out_key_len;
+    uint32_t out_key_len;
     trie->reverse_lookup(query, &out_key_len, out_key);
     return out_key_len;
 }
@@ -428,12 +460,11 @@ std::unique_ptr<trie_t> build(std::vector<std::string>& keys, build_opts& opts) 
         return trie;
     }
     int64_t ival;
+    uint8_t istr[16];
     size_t isize;
-    char istr[10];
     for (std::size_t i = 0; i < keys.size(); ++i) {
         ival = atoll(keys[i].c_str());
-        isize = get_svint60_len(ival);
-        copy_svint60(ival, (uint8_t *) istr, isize);
+        encode_int(ival, istr, isize);
         trie->art_insert((const uint8_t *) istr, isize, trie.get());
     }
     return trie;
@@ -447,11 +478,11 @@ uint64_t lookup(trie_t* trie, const std::string& query, bool as_str_or_int) {
     if (as_str_or_int) {
         return (trie->art_search((const uint8_t *) query.c_str(), query.length()) != nullptr ? 1 : NOT_FOUND);
     }
-    char istr[10];
     int64_t ival = atoll(query.c_str());
-    size_t isize = get_svint60_len(ival);
-    copy_svint60(ival, (uint8_t *) istr, isize);
-    return (trie->art_search((const uint8_t *) istr, isize) != nullptr ? 1 : NOT_FOUND);
+    uint8_t istr[16];
+    size_t isize;
+    encode_int(ival, istr, isize);
+    return (trie->art_search(istr, isize) != nullptr ? 1 : NOT_FOUND);
 }
 template <>
 uint64_t decode(trie_t* trie, uint64_t query) {

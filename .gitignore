@@ -45,4 +45,6 @@ bench/*.json
 .DS_Store
 bench/Makefile
 bench/cmake_install.cmake
+bench/CMakeCache.txt
+bench/CMakeFiles
 
