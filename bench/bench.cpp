@@ -389,7 +389,7 @@ std::unique_ptr<trie_t> build(std::vector<std::string>& keys, build_opts& opts) 
     bldr_opts.max_inner_tries = opts.trie_count - 1;
     bldr_opts.max_groups = 1;
     bldr_opts.partial_sfx_coding = false;
-    madras::dv1::builder trie_bldr(TMP_INDEX_FILENAME, "kv_table,Key", 1, "t", "u",
+    madras::dv1::builder trie_bldr(TMP_INDEX_FILENAME, "kv_table,Key", 1, "t", "u", "0",
                 0, 1, &bldr_opts);
     if (!opts.as_int) {
         for (std::size_t i = 0; i < keys.size(); ++i) {
@@ -414,7 +414,7 @@ std::unique_ptr<trie_t> build(std::vector<std::string>& keys, build_opts& opts) 
     trie->load(TMP_INDEX_FILENAME);
     //trie->load_from_mem(output_buf->data(), output_buf->size());
     cleanup_madras *cleanup_obj = new cleanup_madras();
-    cleanup_obj->init(output_buf);
+    cleanup_obj->init(nullptr);
     trie->set_cleanup_object(cleanup_obj);
     return trie;
 }
