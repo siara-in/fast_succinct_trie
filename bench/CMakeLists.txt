@@ -59,7 +59,7 @@ file(GLOB_RECURSE MARISA_SOURCES "${MARISA_SOURCE_DIR}/lib/*/*.cc")
 add_executable(bench_marisa bench.cpp ${MARISA_SOURCES})
 set_target_properties(bench_marisa PROPERTIES COMPILE_DEFINITIONS "USE_MARISA")
 
-set(MADRAS_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/madras-trie)
+set(MADRAS_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/madras_sorcery_core)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-function -mpopcnt -mbmi2")
 include_directories(${MADRAS_SOURCE_DIR}/include)
 add_executable(bench_madras bench.cpp ${MADRAS_SOURCES})
