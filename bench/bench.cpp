@@ -11,6 +11,13 @@
 #include "essentials/essentials.hpp"
 #include "tinyformat/tinyformat.h"
 
+// madras_sorcery_core's vint.hpp is self-contained (only needs compat.hpp)
+// and is already on every target's include path via bench/CMakeLists.txt's
+// directory-scoped include_directories(${MADRAS_SOURCE_DIR}/include), so
+// it's safe to pull in unconditionally here for the svint60 encoder, not
+// just in the USE_MADRAS translation unit.
+#include "madras/dv1/ds_common/vint.hpp"
+
 static constexpr int SEARCH_RUNS = 10;
 static constexpr uint64_t NOT_FOUND = UINT64_MAX;
 static const char* TMP_INDEX_FILENAME = "tmp.bin";
@@ -50,34 +57,13 @@ typedef struct {
     std::string other_opts;
 } build_opts;
 
-static size_t get_svint60_len(int64_t vint) {
-    vint = abs(vint);
-    return vint < (1 << 4) ? 1 : (vint < (1 << 12) ? 2 : (vint < (1 << 20) ? 3 :
-            (vint < (1 << 28) ? 4 : (vint < (1LL << 36) ? 5 : (vint < (1LL << 44) ? 6 :
-            (vint < (1LL << 52) ? 7 : 8))))));
-}
-
-static void copy_svint60(int64_t input, uint8_t *out, size_t vlen) {
-    vlen--;
-    long lng = abs(input);
-    *out++ = ((lng >> (vlen * 8)) & 0x0F) + (vlen << 4) + (input < 0 ? 0x00 : 0x80);
-    while (vlen--)
-      *out++ = ((lng >> (vlen * 8)) & 0xFF);
-}
-
-static int64_t read_svint60(uint8_t *ptr) {
-    int64_t ret = *ptr & 0x0F;
-    bool is_neg = true;
-    if (*ptr & 0x80)
-      is_neg = false;
-    size_t len = (*ptr >> 4) & 0x07;
-    while (len--) {
-      ret <<= 8;
-      ptr++;
-      ret |= *ptr;
-    }
-    return is_neg ? -ret : ret;
-}
+// Which byte encoding encode_int() below uses for -i/assume_int mode.
+// Set once from the -v/--svint-encoding CLI flag at the top of main();
+// a global (rather than threading a parameter through every build()/
+// lookup() template across every engine, several of which don't have
+// build_opts in scope, e.g. lookup()'s signature) keeps this a minimal,
+// consistent change across all engines that call encode_int().
+static bool g_use_svint_encoding = false;
 
 #if defined(_MSC_VER)
     #include <intrin.h>
@@ -104,11 +90,21 @@ static inline int64_t decode_int64_sortable(const uint8_t *in) {
   return value;
 }
 
+// NOTE: svint60 is variable-length (1-8 bytes) and NOT byte-comparable
+// across different lengths the way the fixed 8-byte sortable encoding is
+// -- lexicographic order of svint60-encoded keys doesn't match numeric
+// order once magnitudes cross a length boundary. Fine for this bench's
+// point-lookup/build/memory measurements (any consistent byte encoding
+// supports exact lookup), just not for anything relying on ascending
+// numeric iteration order.
 static inline void encode_int(int64_t value, uint8_t *out, size_t &isize) {
-    encode_int64_sortable(value, out);
-    isize = 8;
-    // isize = get_svint60_len(value);
-    // copy_svint60(value, out, isize);
+    if (g_use_svint_encoding) {
+        isize = gen::get_svint60_len(value);
+        gen::copy_svint60(value, out, isize);
+    } else {
+        encode_int64_sortable(value, out);
+        isize = 8;
+    }
 }
 
 template <class T>
@@ -707,6 +703,8 @@ cmd_line_parser::parser make_parser(int argc, char** argv) {
     p.add("to_unique", "Unique strings? (default=false)", "-u", false);
     p.add("force_asc", "Force Ascending label order? (default=false)", "-a", false);
     p.add("assume_int", "Assume input is integer? (default=false)", "-i", false);
+    p.add("svint_encoding", "In -i mode, encode integers with variable-length svint60 "
+          "instead of the fixed 8-byte sortable encoding? (default=false)", "-v", false);
     p.add("trie_count", "Compression level? (default=1)", "-d", false);
     p.add("other_opts", "Other options? (default=empty)", "-o", false);
     return p;
@@ -729,6 +727,7 @@ int main(int argc, char* argv[]) {
     const auto to_unique = p.get<bool>("to_unique", false);
     const auto force_asc = p.get<bool>("force_asc", false);
     const auto as_int = p.get<bool>("assume_int", false);
+    g_use_svint_encoding = p.get<bool>("svint_encoding", false);
     const auto trie_count = p.get<int>("trie_count", 1);
     const auto other_opts = p.get<std::string>("other_opts");
 

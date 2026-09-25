@@ -45,6 +45,10 @@ def main():
     parser.add_argument('-i', '--assume-int', action='store_true',
                          help='pass -i (assume_int) to every engine binary, '
                               'for a numeric-keys input file such as numbers.txt')
+    parser.add_argument('-v', '--svint-encoding', action='store_true',
+                         help='in -i mode, pass -v (svint_encoding) to encode integers '
+                              'with variable-length svint60 instead of the fixed 8-byte '
+                              'sortable encoding; only meaningful together with -i')
     args = parser.parse_args()
 
     input_keys = args.input_keys
@@ -53,6 +57,8 @@ def main():
     # or '-i 1'), not a bare '-i' -- passing a bare flag makes every engine
     # binary print its usage text instead of running.
     extra = ' -i 1' if args.assume_int else ''
+    if args.svint_encoding:
+        extra += ' -v 1'
 
     fout = open(output_json, 'wt')
     for command in COMMANDS:
