@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.16)
 project(fast_succinct_trie_build VERSION 0.1.0 LANGUAGES CXX)
 
 if (NOT CMAKE_BUILD_TYPE)

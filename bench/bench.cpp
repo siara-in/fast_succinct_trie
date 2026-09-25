@@ -771,9 +771,6 @@ int main(int argc, char* argv[]) {
 #ifdef USE_ART
     main_template<trie_t>("ART", keys, queries, false, opts);
 #endif
-#ifdef USE_LEOPARD
-    main_template<trie_t>("LEOPARD", keys, queries, false, opts);
-#endif
 #ifdef USE_COCO_TRIE
     main_template<trie_t>("COCO_TRIE", keys, queries, false, opts);
 #endif

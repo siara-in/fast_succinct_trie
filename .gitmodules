@@ -22,9 +22,6 @@
 [submodule "bench/libart"]
 	path = bench/libart
 	url = http://github.com/siara-cc/libart
-[submodule "bench/leopard-trie"]
-	path = bench/leopard-trie
-	url = http://github.com/siara-cc/leopard-trie
 [submodule "CoCo-trie"]
 	path = CoCo-trie
 	url = https://github.com/aboffa/CoCo-trie
