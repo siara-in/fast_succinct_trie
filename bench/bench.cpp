@@ -202,7 +202,7 @@ std::unique_ptr<trie_t> build(std::vector<std::string>& keys, build_opts& opts) 
     for (std::size_t i = 0; i < keys.size(); ++i) {
         ival = atoll(keys[i].c_str());
         encode_int(ival, istr, isize);
-        trie->update(istr, isize, uint32_t(i));
+        trie->update((const char *) istr, isize, uint32_t(i));
     }
     return trie;
 }
@@ -216,7 +216,7 @@ uint64_t lookup(trie_t* trie, const std::string& query, bool as_str_or_int) {
     size_t isize;
     int64_t ival = atoll(query.c_str());
     encode_int(ival, istr, isize);
-    auto res = trie->exactMatchSearch<uint32_t>(istr, isize);
+    auto res = trie->exactMatchSearch<uint32_t>((const char *) istr, isize);
     return res != uint32_t(trie_t::error_code::CEDAR_NO_VALUE) ? uint64_t(res) : NOT_FOUND;
 }
 template <>
