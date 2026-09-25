@@ -49,7 +49,10 @@ def main():
 
     input_keys = args.input_keys
     output_json = args.output_json
-    extra = ' -i' if args.assume_int else ''
+    # cmd_line_parser's boolean flags require an explicit value ('-i true'
+    # or '-i 1'), not a bare '-i' -- passing a bare flag makes every engine
+    # binary print its usage text instead of running.
+    extra = ' -i 1' if args.assume_int else ''
 
     fout = open(output_json, 'wt')
     for command in COMMANDS:
