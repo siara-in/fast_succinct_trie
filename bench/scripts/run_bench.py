@@ -21,7 +21,6 @@ COMMANDS = [
     'bench_marisa',
     'bench_madras',
     'bench_art',
-    'bench_leopard',
     '../CoCo-trie-wrapper/build/bench_coco',
     'bench_fst',
     'bench_pdt',
@@ -43,14 +42,18 @@ def main():
     parser = ArgumentParser()
     parser.add_argument('input_keys')
     parser.add_argument('output_json')
+    parser.add_argument('-i', '--assume-int', action='store_true',
+                         help='pass -i (assume_int) to every engine binary, '
+                              'for a numeric-keys input file such as numbers.txt')
     args = parser.parse_args()
 
     input_keys = args.input_keys
     output_json = args.output_json
+    extra = ' -i' if args.assume_int else ''
 
     fout = open(output_json, 'wt')
     for command in COMMANDS:
-        cmd = f'{BUILD_DIR}/{command} {input_keys}'
+        cmd = f'{BUILD_DIR}/{command} {input_keys}{extra}'
         stdout = run_command(cmd)
         fout.write(stdout)
     fout.close()
