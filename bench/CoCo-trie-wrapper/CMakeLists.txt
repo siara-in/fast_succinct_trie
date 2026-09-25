@@ -49,7 +49,8 @@ target_link_libraries(bench_coco sdsl succinct ${Boost_LIBRARIES})
 target_include_directories(bench_coco PUBLIC ${COCO_TRIE_SOURCE_DIR}/include
     ${COCO_TRIE_SOURCE_DIR}/lib/sdsl-lite/include
     ${COCO_TRIE_SOURCE_DIR}/lib/sux
-    ${COCO_TRIE_SOURCE_DIR}/lib/ds2i)
+    ${COCO_TRIE_SOURCE_DIR}/lib/ds2i
+    ${CMAKE_CURRENT_SOURCE_DIR}/../madras_sorcery_core/include)
 add_dependencies(bench_coco MoveConfig)
 set_target_properties(bench_coco PROPERTIES COMPILE_DEFINITIONS "USE_COCO_TRIE")
 #target_compile_definitions(bench_coco PRIVATE BIG_ALPHABET)
