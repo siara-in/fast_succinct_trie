@@ -72,6 +72,8 @@ endif ()
 include_directories(${MADRAS_SOURCE_DIR}/include)
 add_executable(bench_madras bench.cpp ${MADRAS_SOURCES})
 set_target_properties(bench_madras PROPERTIES COMPILE_DEFINITIONS "USE_MADRAS")
+add_executable(bench_madras_blk bench.cpp ${MADRAS_SOURCES})
+set_target_properties(bench_madras_blk PROPERTIES COMPILE_DEFINITIONS "USE_MADRAS;USE_MADRAS_BLK")
 
 set(ART_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libart)
 if (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")

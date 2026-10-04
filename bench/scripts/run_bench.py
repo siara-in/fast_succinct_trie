@@ -20,6 +20,7 @@ COMMANDS = [
     'bench_tx',
     'bench_marisa',
     'bench_madras',
+    'bench_madras_blk',
     'bench_art',
     '../CoCo-trie-wrapper/build/bench_coco',
     'bench_fst',

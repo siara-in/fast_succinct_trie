@@ -360,7 +360,7 @@ uint64_t get_memory(trie_t* trie) {
 
 #ifdef USE_MADRAS
 #include <madras/dv1/builder/madras_builder.hpp>
-#include <madras/dv1/reader/static_trie_map.hpp>
+#include <madras/dv1/reader/static_table_map.hpp>
 class cleanup_madras : public madras::dv1::cleanup_interface {
     private:
         std::vector<uint8_t> *output_buf;
@@ -374,7 +374,7 @@ class cleanup_madras : public madras::dv1::cleanup_interface {
             output_buf = _output_buf;
         }
 };
-using trie_t = madras::dv1::static_trie_map;
+using trie_t = madras::dv1::static_table_map;
 template <>
 std::unique_ptr<trie_t> build(std::vector<std::string>& keys, build_opts& opts) {
     madras::dv1::bldr_options bldr_opts = madras::dv1::dflt_opts;
@@ -385,6 +385,12 @@ std::unique_ptr<trie_t> build(std::vector<std::string>& keys, build_opts& opts) 
     bldr_opts.max_inner_tries = opts.trie_count - 1;
     bldr_opts.max_groups = 1;
     bldr_opts.partial_sfx_coding = false;
+#ifdef USE_MADRAS_BLK
+    // madras_blk: block index for the keys. The index is loaded into
+    // memory below, so no block cache (blk_cache) is set: blocks are read
+    // in place, as madras reads its trie.
+    bldr_opts.index_type = MDX_INDEX_MADRAS_BLK;
+#endif
     madras::dv1::builder trie_bldr(TMP_INDEX_FILENAME, "kv_table,Key", 1, "t", "u", "0",
                 0, 1, &bldr_opts);
     if (!opts.as_int) {
@@ -765,7 +771,11 @@ int main(int argc, char* argv[]) {
     main_template<trie_t>("MARISA", keys, queries, true, opts);
 #endif
 #ifdef USE_MADRAS
+#ifdef USE_MADRAS_BLK
+    main_template<trie_t>("MADRAS_BLK", keys, queries, true, opts);
+#else
     main_template<trie_t>("MADRAS", keys, queries, true, opts);
+#endif
 #endif
 #ifdef USE_ART
     main_template<trie_t>("ART", keys, queries, false, opts);
